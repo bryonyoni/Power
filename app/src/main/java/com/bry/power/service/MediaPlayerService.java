@@ -1,6 +1,7 @@
 package com.bry.power.service;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -21,7 +22,9 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private MediaPlayer mediaPlayer;
     private String mediaFile;
     private int resumePosition;
+    private AudioManager audioManager;
 
+    /////
     @Override
     public IBinder onBind(Intent intent){
         return iBinder;
@@ -40,7 +43,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         stopSelf();
     }
 
-    //For handling errors..
+      //For handling errors..
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra){
         //Invoked when an asynchronous operation has an error
@@ -74,9 +77,27 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     }
 
     @Override
-    public void onAudioFocusChange(int focusChange){
-
+    public void onAudioFocusChange(int focusState){
+        switch (focusState){
+            case AudioManager.AUDIOFOCUS_GAIN:
+                if(mediaPlayer == null) initMediaPlayer();
+                else if(!mediaPlayer.isPlaying())mediaPlayer.start();
+                mediaPlayer.setVolume(1.0f, 1.0f);
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS:
+                if(mediaPlayer.isPlaying()) mediaPlayer.stop();
+                mediaPlayer.release();
+                mediaPlayer = null;
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                if(mediaPlayer.isPlaying())mediaPlayer.pause();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                if(mediaPlayer.isPlaying()) mediaPlayer.setVolume(0.1f, 0.1f);
+                break;
+        }
     }
+    ///////
 
     private void initMediaPlayer(){
         mediaPlayer = new MediaPlayer();
@@ -126,6 +147,36 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             mediaPlayer.start();
         }
     }
+
+    private boolean requestAudioFocus(){
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int result = audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN);
+        if(result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED){
+            return true;
+        }
+        return false;
+    }
+
+    private boolean removeAudioFocus(){
+        return AudioManager.AUDIOFOCUS_REQUEST_GRANTED == audioManager.abandonAudioFocus(this);
+    }
+
+    //requested by the activity(s)
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId){
+        try{
+            mediaFile = intent.getExtras().getString("media");
+        }catch(NullPointerException e){
+            Log.d("onStartMedia method","DID NOT FIND ANY MEDIA FILES!!!!!!!!!!!!!!");
+            stopSelf();
+        }
+        if(requestAudioFocus() == false)stopSelf();
+
+        if(mediaFile != null && mediaFile != "") initMediaPlayer();
+
+       return super.onStartCommand(intent, flags,startId);
+    }
+
 
  public class LocalBinder extends Binder {
         public MediaPlayerService getService(){
