@@ -1,26 +1,38 @@
 package com.bry.power.ui;
 
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.database.Cursor;
+import android.media.Image;
+import android.net.Uri;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.Toast;
 
 import com.bry.power.R;
+import com.bry.power.service.Audio;
 import com.bry.power.service.MediaPlayerService;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
     private MediaPlayerService player;
     boolean serviceBound = false;
+    ArrayList<Audio> audioList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg");
+        loadAudio();
+        playAudio(audioList.get(0).getData());
+
+//        playAudio("https://upload.wikimedia.org/wikipedia/commons/6/6c/Grieg_Lyric_Pieces_Kobold.ogg");
     }
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
@@ -60,6 +72,28 @@ public class MainActivity extends AppCompatActivity {
     public void onRestoreInstanceState(Bundle savedInstanceState){
         super.onRestoreInstanceState(savedInstanceState);
         serviceBound = savedInstanceState.getBoolean("serviceState");
+    }
+
+    private void loadAudio(){
+        ContentResolver contentResolver = getContentResolver();
+
+        Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+        String selection = MediaStore.Audio.Media.IS_MUSIC +"!=0";
+        String sortOrder = MediaStore.Audio.Media.TITLE + " ASC";
+        Cursor cursor = contentResolver.query(uri,null,selection,null,sortOrder);
+
+        if(cursor!= null && cursor.getCount() > 0){
+            audioList = new ArrayList<>();
+            while(cursor.moveToNext()){
+                String data = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA));
+                String title = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE));
+                String album = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM));
+                String artist = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST));
+
+                audioList.add(new Audio(data,title,album,artist));
+            }
+        }
+        cursor.close();
     }
 
     @Override

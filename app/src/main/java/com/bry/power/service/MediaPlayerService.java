@@ -1,12 +1,16 @@
 package com.bry.power.service;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import java.io.IOException;
@@ -23,6 +27,9 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private String mediaFile;
     private int resumePosition;
     private AudioManager audioManager;
+    private boolean ongoingCall = false;
+    private PhoneStateListener phoneStateListener;
+    private TelephonyManager telephonyManager;
 
     /////
     @Override
@@ -185,6 +192,46 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             mediaPlayer.release();
         }
         removeAudioFocus();
+    }
+
+    private BroadcastReceiver becomingNoisyReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+           pauseMedia();
+//            buildNotification(PlaybackStatus.PAUSED);
+        }
+    };
+
+    private void registerBecomingNoisyReceiver(){
+        IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        registerReceiver(becomingNoisyReceiver,intentFilter);
+    }
+
+    private void callStateListener(){
+        telephonyManager= (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        phoneStateListener = new PhoneStateListener(){
+            @Override
+            public void onCallStateChanged(int state, String incomingNumber){
+                switch(state){
+                    case TelephonyManager.CALL_STATE_OFFHOOK:
+                    case TelephonyManager.CALL_STATE_RINGING:
+                        if(mediaPlayer != null){
+                            pauseMedia();
+                            ongoingCall = true;
+                        }
+                        break;
+                    case TelephonyManager.CALL_STATE_IDLE:
+                        if(mediaPlayer != null){
+                            if(ongoingCall){
+                                ongoingCall = false;
+                                resumeMedia();
+                            }
+                        }
+                        break;
+                }
+            }
+        };
+        telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_CALL_STATE);
     }
 
 
