@@ -1,7 +1,9 @@
-package com.bry.power;
+package com.bry.power.ui;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+
+import com.bry.power.R;
 
 public class MainActivity extends AppCompatActivity {
 
