@@ -6,6 +6,9 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
+import android.util.Log;
+
+import java.io.IOException;
 
 /**
  * Created by bryon on 6/18/2017.
@@ -17,6 +20,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private final IBinder iBinder = new LocalBinder();
     private MediaPlayer mediaPlayer;
     private String mediaFile;
+    private int resumePosition;
 
     @Override
     public IBinder onBind(Intent intent){
@@ -30,13 +34,27 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     @Override
     public void onCompletion(MediaPlayer mp){
-
+        //Invoked when playback of a media source has completed.
+        stopMedia();
+        //stops the service
+        stopSelf();
     }
 
     //For handling errors..
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra){
         //Invoked when an asynchronous operation has an error
+        switch (what){
+            case MediaPlayer.MEDIA_ERROR_NOT_VALID_FOR_PROGRESSIVE_PLAYBACK:
+                Log.d("MediaPlayer Error","MEDIA ERROR NOT VALID FOR PROGRESSIVE PLAYBACK" + extra);
+                break;
+            case MediaPlayer.MEDIA_ERROR_SERVER_DIED:
+                Log.d("MediaPlayer Error", "MEDIA ERROR SERVER DIED" + extra);
+                break;
+            case MediaPlayer.MEDIA_ERROR_UNKNOWN:
+                Log.d("mediaPlayer Error","MEDIA ERROR UNKNOWN");
+                break;
+        }
         return false;
     }
 
@@ -72,10 +90,44 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
         mediaPlayer.reset();
 
-//        mediaPlayer.setAudioStream
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        try{
+            mediaPlayer.setDataSource(mediaFile);
+        }catch(IOException e){
+            e.printStackTrace();
+            stopSelf();
+        }
+        mediaPlayer.prepareAsync();
     }
 
-    public class LocalBinder extends Binder {
+    private void playMedia(){
+        if(!mediaPlayer.isPlaying()){
+            mediaPlayer.start();
+        }
+    }
+
+    private void stopMedia(){
+        if(mediaPlayer == null)return;
+        if(mediaPlayer.isPlaying()){
+            mediaPlayer.stop();
+        }
+    }
+
+    private void pauseMedia(){
+        if(mediaPlayer.isPlaying()){
+            mediaPlayer.pause();
+            resumePosition = mediaPlayer.getCurrentPosition();
+        }
+    }
+
+    private void resumeMedia(){
+        if(!mediaPlayer.isPlaying()){
+            mediaPlayer.seekTo(resumePosition);
+            mediaPlayer.start();
+        }
+    }
+
+ public class LocalBinder extends Binder {
         public MediaPlayerService getService(){
             return MediaPlayerService.this;
         }
