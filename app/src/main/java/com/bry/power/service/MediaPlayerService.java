@@ -177,6 +177,16 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
        return super.onStartCommand(intent, flags,startId);
     }
 
+    @Override
+    public void onDestroy(){
+        super.onDestroy();
+        if (mediaPlayer != null){
+            stopMedia();
+            mediaPlayer.release();
+        }
+        removeAudioFocus();
+    }
+
 
  public class LocalBinder extends Binder {
         public MediaPlayerService getService(){
