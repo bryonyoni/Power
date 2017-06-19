@@ -65,7 +65,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     @Override
     public void onPrepared(MediaPlayer mp){
-
+        playMedia();
     }
 
     @Override
