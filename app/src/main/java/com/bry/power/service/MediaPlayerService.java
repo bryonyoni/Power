@@ -16,7 +16,7 @@ import android.media.session.MediaSessionManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.support.v4.app.NotificationCompat;
+import android.support.v7.app.NotificationCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -71,7 +71,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         callStateListener();
         registerBecomingNoisyReceiver();
         register_playNewAudio();
-    }
+    } //
     @Override
     public IBinder onBind(Intent intent){
         return iBinder;
@@ -80,15 +80,17 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     @Override
     public void onBufferingUpdate(MediaPlayer mp, int percent){
 
-    }
+    } //
 
     @Override
     public void onCompletion(MediaPlayer mp){
         //Invoked when playback of a media source has completed.
         stopMedia();
-        //stops the service
+        //stops the service and removes the notification at the notification bar.
+        removeNotification();
+
         stopSelf();
-    }
+    } //
 
       //For handling errors..
     @Override
@@ -106,22 +108,22 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 break;
         }
         return false;
-    }
+    } //
 
     @Override
     public boolean onInfo(MediaPlayer mp, int what,int extra){
         return false;
-    }
+    } //
 
     @Override
     public void onPrepared(MediaPlayer mp){
         playMedia();
-    }
+    } //
 
     @Override
     public void onSeekComplete(MediaPlayer mp){
 
-    }
+    } //
 
     @Override
     public void onAudioFocusChange(int focusState){
@@ -143,11 +145,11 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 if(mediaPlayer.isPlaying()) mediaPlayer.setVolume(0.1f, 0.1f);
                 break;
         }
-    }
+    } //
     ///////
 
     private void initMediaPlayer(){
-        mediaPlayer = new MediaPlayer();
+        if(mediaPlayer == null) mediaPlayer = new MediaPlayer();
 
         mediaPlayer.setOnCompletionListener(this);
         mediaPlayer.setOnErrorListener(this);
@@ -156,6 +158,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         mediaPlayer.setOnSeekCompleteListener(this);
         mediaPlayer.setOnInfoListener(this);
 
+        //Reset media player so that it doesn't point to another data source..
         mediaPlayer.reset();
 
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -166,34 +169,34 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             stopSelf();
         }
         mediaPlayer.prepareAsync();
-    }
+    } //
 
     private void playMedia(){
         if(!mediaPlayer.isPlaying()){
             mediaPlayer.start();
         }
-    }
+    } //
 
     private void stopMedia(){
         if(mediaPlayer == null)return;
         if(mediaPlayer.isPlaying()){
             mediaPlayer.stop();
         }
-    }
+    } //
 
     private void pauseMedia(){
         if(mediaPlayer.isPlaying()){
             mediaPlayer.pause();
             resumePosition = mediaPlayer.getCurrentPosition();
         }
-    }
+    } //
 
     private void resumeMedia(){
         if(!mediaPlayer.isPlaying()){
             mediaPlayer.seekTo(resumePosition);
             mediaPlayer.start();
         }
-    }
+    } //
 
     private boolean requestAudioFocus(){
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -202,11 +205,11 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             return true;
         }
         return false;
-    }
+    } //
 
     private boolean removeAudioFocus(){
         return AudioManager.AUDIOFOCUS_REQUEST_GRANTED == audioManager.abandonAudioFocus(this);
-    }
+    } //
 
     //requested by the activity(s)
     @Override
@@ -244,17 +247,28 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     @Override
     public void onDestroy(){
         super.onDestroy();
+        //stops media that is playing, if there is media that is playing...
         if (mediaPlayer != null){
             stopMedia();
             mediaPlayer.release();
         }
         removeAudioFocus();
+        //disables the PhoneStateListener..
         if(phoneStateListener != null) telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_NONE);
-        removeNotification();
+        removeNotification(); //removes teh notification at the notification Bar...
+        //unregisters the becomingNoisyReceiver and the playNewAudio listeners..
         unregisterReceiver(becomingNoisyReceiver);
         unregisterReceiver(playNewAudio);
+        //clears the cached playlist...
         new StorageUtil(getApplicationContext()).clearCachedAudioPlaylist();
-    }//has an error.
+    } //
+
+    @Override
+    public boolean onUnbind(Intent intent){
+        mediaSession.release();
+        removeNotification();
+        return super.onUnbind(intent);
+    }//
 
     private BroadcastReceiver becomingNoisyReceiver = new BroadcastReceiver() {
         @Override
@@ -262,12 +276,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
            pauseMedia();
             buildNotification(PlaybackStatus.PAUSED);
         }
-    };
+    }; //
 
     private void registerBecomingNoisyReceiver(){
         IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
         registerReceiver(becomingNoisyReceiver,intentFilter);
-    }
+    } //
 
     private void callStateListener(){
         telephonyManager= (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
@@ -294,7 +308,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
         };
         telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_CALL_STATE);
-    }
+    } //
 
     private BroadcastReceiver playNewAudio = new BroadcastReceiver() {
         @Override
@@ -311,12 +325,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             updateMetaData();
             buildNotification(PlaybackStatus.PLAYING);
         }
-    };
+    }; //
 
     private void register_playNewAudio(){
         IntentFilter filter = new IntentFilter(MainActivity.Broadcast_PLAY_NEW_AUDIO);
         registerReceiver(playNewAudio,filter);
-    }
+    } //
 
     private void initMediaSession()throws RemoteException {
         if(mediaSessionManager !=null) return;
@@ -371,7 +385,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 super.onSeekTo(position);
             }
         });
-    }
+    } //
 
     private void updateMetaData(){
         Bitmap albumArt = BitmapFactory.decodeResource(getResources(), R.drawable.owl);
@@ -381,7 +395,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, activeAudio.getAlbum())
         .putString(MediaMetadataCompat.METADATA_KEY_TITLE, activeAudio.getTitle())
         .build());
-    }
+    } //
 
     private void skipToNext(){
         if(audioIndex == audioList.size() -1){
@@ -394,7 +408,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         stopMedia();
         mediaPlayer.reset();
         initMediaPlayer();
-    }
+    } //
 
     private void skipToPrevious(){
         if(audioIndex == 0){
@@ -408,7 +422,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         stopMedia();
         mediaPlayer.reset();
         initMediaPlayer();
-    }
+    } //
 
     private void buildNotification(PlaybackStatus playbackStatus){
         int notificationAction = android.R.drawable.ic_media_pause;
@@ -429,8 +443,8 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 .setStyle(new NotificationCompat.MediaStyle()
                         .setMediaSession(mediaSession.getSessionToken())
                         .setShowActionsInCompactView(0, 1, 2))
-                        .setColor(getResources().getColor(R.color.colorPrimary))
-                        .setlargeIcon(largeIcon)
+                        .setColor(getResources().getColor(R.color.colorAccent))
+                        .setLargeIcon(largeIcon)
                         .setSmallIcon(android.R.drawable.stat_sys_headset)
 
                         .setContentText(activeAudio.getArtist())
@@ -442,12 +456,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                         .addAction(android.R.drawable.ic_media_next,"next", playbackAction(2));
 
         ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, notificationBuilder.build());
-    }
+    } // Has got media error.
 
     private void removeNotification(){
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.cancel(NOTIFICATION_ID);
-    }
+    } //
 
     private PendingIntent playbackAction(int actionNumber){
         Intent playbackAction = new Intent(this,MediaPlayerService.class);
@@ -468,7 +482,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 break;
         }
         return null;
-    }
+    } //
 
     private void handleIncomingActions(Intent playbackAction){
         if(playbackAction == null || playbackAction.getAction() == null)return;
@@ -484,11 +498,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         } else if (actionString.equalsIgnoreCase(ACTION_STOP)) {
             transportControls.stop();
         }
-    }
+    } //
 
  public class LocalBinder extends Binder {
+     //For clients to call public methods...
         public MediaPlayerService getService(){
             return MediaPlayerService.this;
         }
-    }
+    }//
 }
