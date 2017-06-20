@@ -6,14 +6,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.drm.DrmStore;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.AudioManager;
+import android.media.MediaMetadata;
 import android.media.MediaPlayer;
+import android.media.session.MediaSessionManager;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.RemoteException;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.bry.power.R;
 import com.bry.power.ui.MainActivity;
 
 import java.io.IOException;
@@ -34,10 +43,20 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private boolean ongoingCall = false;
     private PhoneStateListener phoneStateListener;
     private TelephonyManager telephonyManager;
+    private MediaSessionManager mediaSessionManager;
+    private MediaSessionCompat mediaSession;
+    private MediaControllerCompat.TransportControls transportControls;
 
     private ArrayList<Audio> audioList;
     private int audioIndex = -1;
     private Audio activeAudio;
+    public static final String ACTION_PLAY = "com.bry.power.ACTION_PLAY";
+    public static final String ACTION_PAUSE = "com.bry.power.ACTION_PAUSE";
+    public static final String ACTION_PREVIOUS = "com.bry.power.ACTION_PREVIOUS";
+    public static final String ACTION_NEXT = "com.bry.power.ACTION_NEXT";
+    public static final String ACTION_STOP = "com.bry.power.ACTION_STOP";
+
+    private static final int NOTIFICATION_ID = 101;
 
     /////
     @Override
@@ -274,6 +293,98 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private void register_playNewAudio(){
         IntentFilter filter = new IntentFilter(MainActivity.Broadcast_PLAY_NEW_AUDIO);
         registerReceiver(playNewAudio,filter);
+    }
+
+    private void initMediaSession()throws RemoteException {
+        if(mediaSessionManager !=null) return;
+
+        mediaSessionManager = (MediaSessionManager) getSystemService(Context.MEDIA_SESSION_SERVICE);
+        mediaSession = new MediaSessionCompat(getApplicationContext(),"AudioPlayer");
+        transportControls = mediaSession.getController().getTransportControls();
+        mediaSession.setActive(true);
+        mediaSession.setFlags(MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        updateMetaData();
+
+        mediaSession.setCallback(new MediaSessionCompat.Callback() {
+            @Override
+            public void onPlay() {
+                super.onPlay();
+                resumeMedia();
+                buildNotification(PlaybackStatus.PLAYING);
+            }
+
+            @Override
+            public void onPause() {
+                super.onPause();
+                pauseMedia();
+                buildNotification(PlaybackStatus.PAUSED);
+            }
+
+            @Override
+            public void onSkipToNext() {
+                super.onSkipToNext();
+                skipToNext();
+                updateMetaData();
+                buildNotification(PlaybackStatus.PLAYING);
+            }
+
+            @Override
+            public void onSkipToPrevious() {
+                super.onSkipToPrevious();
+                skipToPrevious();
+                updateMetaData();
+                buildNotification(PlaybackStatus.PLAYING);
+            }
+
+            @Override
+            public void onStop() {
+                super.onStop();
+                removeNotification();
+                stopSelf();
+            }
+
+            @Override
+            public void onSeekTo(long position) {
+                super.onSeekTo(position);
+            }
+        });
+    }
+
+    private void updateMetaData(){
+        Bitmap albumArt = BitmapFactory.decodeResource(getResources(), R.drawable.owl);
+        mediaSession.setMetadata(new MediaMetadataCompat.Builder()
+        .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART,albumArt)
+        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST,activeAudio.getArtist())
+        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, activeAudio.getAlbum())
+        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, activeAudio.getTitle())
+        .build());
+    }
+
+    private void skipToNext(){
+        if(audioIndex == audioList.size() -1){
+            audioIndex = 0;
+            activeAudio = audioList.get(audioIndex);
+        } else {
+            activeAudio = audioList.get(++audioIndex);
+        }
+        new StorageUtil(getApplicationContext()).storeAudioIndex(audioIndex);
+        stopMedia();
+        mediaPlayer.reset();
+        initMediaPlayer();
+    }
+
+    private void skipToPrevious(){
+        if(audioIndex == 0){
+            audioIndex = audioList.size()-1;
+            activeAudio = audioList.get(audioIndex);
+        } else {
+            activeAudio = audioList.get(--audioIndex);
+        }
+
+        new StorageUtil(getApplicationContext()).storeAudioIndex(audioIndex);
+        stopMedia();
+        mediaPlayer.reset();
+        initMediaPlayer();
     }
 
 

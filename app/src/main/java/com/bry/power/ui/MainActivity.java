@@ -24,6 +24,7 @@ import java.util.ArrayList;
 public class MainActivity extends AppCompatActivity {
     private MediaPlayerService player;
     boolean serviceBound = false;
+    private int audioIndex = -1;
     ArrayList<Audio> audioList;
     public static final String Broadcast_PLAY_NEW_AUDIO = "com.bry.power.PlayNewAudio";
 
