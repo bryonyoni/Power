@@ -41,11 +41,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     private final IBinder iBinder = new LocalBinder();
     private MediaPlayer mediaPlayer;
-    private String mediaFile;
+
     private int resumePosition;
     private AudioManager audioManager;
     private boolean ongoingCall = false;
     private PhoneStateListener phoneStateListener;
+
     private TelephonyManager telephonyManager;
     private MediaSessionManager mediaSessionManager;
     private MediaSessionCompat mediaSession;
@@ -54,6 +55,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private ArrayList<Audio> audioList;
     private int audioIndex = -1;
     private Audio activeAudio;
+
     public static final String ACTION_PLAY = "com.bry.power.ACTION_PLAY";
     public static final String ACTION_PAUSE = "com.bry.power.ACTION_PAUSE";
     public static final String ACTION_PREVIOUS = "com.bry.power.ACTION_PREVIOUS";
@@ -73,7 +75,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     @Override
     public IBinder onBind(Intent intent){
         return iBinder;
-    }
+    } //
 
     @Override
     public void onBufferingUpdate(MediaPlayer mp, int percent){
@@ -158,7 +160,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try{
-            mediaPlayer.setDataSource(mediaFile);
+            mediaPlayer.setDataSource(activeAudio.getData());
         }catch(IOException e){
             e.printStackTrace();
             stopSelf();
@@ -209,18 +211,35 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     //requested by the activity(s)
     @Override
     public int onStartCommand(Intent intent, int flags, int startId){
-        try{
-            mediaFile = intent.getExtras().getString("media");
-        }catch(NullPointerException e){
-            Log.d("onStartMedia method","DID NOT FIND ANY MEDIA FILES!!!!!!!!!!!!!!");
+       try{
+           StorageUtil storage = new StorageUtil(getApplicationContext());
+           audioList = storage.loadAudio();
+           audioIndex = storage.loadAudioIndex();
+
+           if(audioIndex != -1 && audioIndex < audioList.size()){
+               activeAudio = audioList.get(audioIndex);
+           }else{
+               stopSelf();
+           }
+       }catch(NullPointerException e){
+           stopSelf();
+       }
+        if(requestAudioFocus()== false){
             stopSelf();
         }
-        if(requestAudioFocus() == false)stopSelf();
-
-        if(mediaFile != null && mediaFile != "") initMediaPlayer();
-
+        if(mediaSessionManager == null){
+            try{
+                initMediaSession();
+                initMediaPlayer();
+            }catch(RemoteException e){
+                e.printStackTrace();
+                stopSelf();
+            }
+            buildNotification(PlaybackStatus.PLAYING);
+        }
+        handleIncomingActions(intent);
        return super.onStartCommand(intent, flags,startId);
-    }
+    } //
 
     @Override
     public void onDestroy(){
@@ -449,6 +468,22 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
                 break;
         }
         return null;
+    }
+
+    private void handleIncomingActions(Intent playbackAction){
+        if(playbackAction == null || playbackAction.getAction() == null)return;
+        String actionString = playbackAction.getAction();
+        if(actionString.equalsIgnoreCase(ACTION_PLAY)){
+            transportControls.play();
+        }else if (actionString.equalsIgnoreCase(ACTION_PAUSE)) {
+            transportControls.pause();
+        } else if (actionString.equalsIgnoreCase(ACTION_NEXT)) {
+            transportControls.skipToNext();
+        } else if (actionString.equalsIgnoreCase(ACTION_PREVIOUS)) {
+            transportControls.skipToPrevious();
+        } else if (actionString.equalsIgnoreCase(ACTION_STOP)) {
+            transportControls.stop();
+        }
     }
 
  public class LocalBinder extends Binder {
