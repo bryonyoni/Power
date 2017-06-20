@@ -17,6 +17,7 @@ import android.widget.Toast;
 import com.bry.power.R;
 import com.bry.power.service.Audio;
 import com.bry.power.service.MediaPlayerService;
+import com.bry.power.service.StorageUtil;
 
 import java.util.ArrayList;
 
@@ -24,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
     private MediaPlayerService player;
     boolean serviceBound = false;
     ArrayList<Audio> audioList;
+    public static final String Broadcast_PLAY_NEW_AUDIO = "com.bry.power.PlayNewAudio";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,12 +55,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void playAudio(String media){
         if(!serviceBound){
-            Intent playerIntent = new Intent(this,MediaPlayerService.class);
-            playerIntent.putExtra("media", media);
-            startService(playerIntent);
-            bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE);
-        }else{
+            StorageUtil storage = new StorageUtil(getApplicationContext());
+            storage.storeAudio(audioList);
+            storage.storeAudioIndex(audioIndex);
 
+            Intent playerIntent = new Intent(this,MediaPlayerService.class);
+            startService(playerIntent);
+            bindService(playerIntent,serviceConnection,Context.BIND_AUTO_CREATE);
+        }else{
+            StorageUtil storage = new StorageUtil(getApplicationContext());
+            storage.storeAudioIndex(audioIndex);
+
+            Intent broadcastIntent = new Intent(Broadcast_PLAY_NEW_AUDIO);
+            sendBroadcast(broadcastIntent);
         }
     }
 

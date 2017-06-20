@@ -14,6 +14,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Created by bryon on 6/18/2017.
@@ -30,6 +31,10 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private boolean ongoingCall = false;
     private PhoneStateListener phoneStateListener;
     private TelephonyManager telephonyManager;
+
+    private ArrayList<Audio> audioList;
+    private int audioIndex = -1;
+    private Audio activeAudio;
 
     /////
     @Override
