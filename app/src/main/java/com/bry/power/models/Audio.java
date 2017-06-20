@@ -1,4 +1,4 @@
-package com.bry.power.service;
+package com.bry.power.models;
 
 import java.io.Serializable;
 

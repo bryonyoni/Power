@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.database.Cursor;
-import android.media.Image;
 import android.net.Uri;
 import android.os.IBinder;
 import android.provider.MediaStore;
@@ -15,7 +14,7 @@ import android.os.Bundle;
 import android.widget.Toast;
 
 import com.bry.power.R;
-import com.bry.power.service.Audio;
+import com.bry.power.models.Audio;
 import com.bry.power.service.MediaPlayerService;
 import com.bry.power.service.StorageUtil;
 
