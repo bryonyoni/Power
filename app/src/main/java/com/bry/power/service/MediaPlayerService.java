@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.drm.DrmStore;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
@@ -12,6 +13,8 @@ import android.os.IBinder;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+
+import com.bry.power.ui.MainActivity;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,6 +40,13 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private Audio activeAudio;
 
     /////
+    @Override
+    public void onCreate(){
+        super.onCreate();
+        callStateListener();
+        registerBecomingNoisyReceiver();
+        register_playNewAudio();
+    }
     @Override
     public IBinder onBind(Intent intent){
         return iBinder;
@@ -237,6 +247,28 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
         };
         telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_CALL_STATE);
+    }
+
+    private BroadcastReceiver playNewAudio = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            audioIndex = new StorageUtil(getApplicationContext()).loadAudioIndex();
+            if(audioIndex != -1 && audioIndex< audioList.size()){
+                activeAudio = audioList.get(audioIndex);
+            }else{
+                stopSelf();
+            }
+            stopMedia();
+            mediaPlayer.reset();
+            initMediaPlayer();
+            updateMetaData();
+            buildNotification(PlaybackStatus.PLAYING);
+        }
+    };
+
+    private void register_playNewAudio(){
+        IntentFilter filter = new IntentFilter(MainActivity.Broadcast_PLAY_NEW_AUDIO);
+        registerReceiver(playNewAudio,filter);
     }
 
 
