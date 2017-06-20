@@ -207,13 +207,18 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             mediaPlayer.release();
         }
         removeAudioFocus();
-    }
+        if(phoneStateListener != null) telephonyManager.listen(phoneStateListener,PhoneStateListener.LISTEN_NONE);
+        removeNotification();
+        unregisterReceiver(becomingNoisyReceiver);
+        unregisterReceiver(playNewAudio);
+        new StorageUtil(getApplicationContext()).clearCachedAudioPlaylist();
+    }//has an error.
 
     private BroadcastReceiver becomingNoisyReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
            pauseMedia();
-//            buildNotification(PlaybackStatus.PAUSED);
+            buildNotification(PlaybackStatus.PAUSED);
         }
     };
 
